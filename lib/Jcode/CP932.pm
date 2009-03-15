@@ -1,6 +1,6 @@
 package Jcode::CP932;
 require 5.008001;
-our $VERSION = '0.05';
+our $VERSION = '0.07';
 
 use warnings;
 use strict;
@@ -78,11 +78,12 @@ sub new {
     $self;
 }
 
+## from original Jcode
 my %_0208 = (
-	     1978 => '\e\$\@',
-	     1983 => '\e\$B',
-	     1990 => '\e&\@\e\$B',
-	    );
+       1978 => '\e\$\@',
+       1983 => '\e\$B',
+       1990 => '\e&\@\e\$B',
+);
 my %RE = (
        ASCII     => '[\x00-\x7f]',
        BIN       => '[\x00-\x06\x7f\xff]',
@@ -96,22 +97,27 @@ my %RE = (
        SJIS_C    => '[\x81-\x9f\xe0-\xfc][\x40-\x7e\x80-\xfc]',
        SJIS_KANA => '[\xa1-\xdf]',
        UTF8      => '[\xc0-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf][\x80-\xbf]'
-      );
+);
 
 use B::Deparse;
 my $deparse = B::Deparse->new();
 $deparse->ambient_pragmas(strict => 'all');
 foreach my $func (qw/convert append getcode set _max/) {
     my $body = $deparse->coderef2text( \&{"Jcode::$func"} );
-    $body =~ s/package Jcode;//;
+    $body =~ s"package Jcode;"";
     eval "sub $func $body";
     die if $@;
 }
 
+##
 sub utf8 {
     my $str_ref = $_[0]->{r_str};
     $_[0]->{normalize} and $_[0]->{normalize}->( $str_ref );
     encode_utf8( $$str_ref )
+}
+
+sub get {
+    ${$_[0]->{r_str}};
 }
 
 
@@ -127,6 +133,11 @@ my %jis_cp932;
 my $j2c_jis;
 my $j2c_cp932;
 
+# YEN SIGN,        EM DASH,        OVERLINE,         MIDLINE HORIZONTAL ELLIPSIS
+my $other_mapping = "\x{00A5}\x{2014}\x{203E}\x{22EF}";
+# REVERSE SOLIDUS, HORIZONTAL BAR, FULLWIDTH MACRON, HORIZONTAL ELLIPSIS
+my $jis_mapping   = "\x{005C}\x{2015}\x{FFE3}\x{2026}";
+
 sub set_jis_cp932 {
     my $class = shift;
     %jis_cp932 = @_;
@@ -136,6 +147,30 @@ sub set_jis_cp932 {
 
     $j2c_jis   =~ s,\\,\\\\,og; $j2c_jis   =~ s,/,\\/,og;
     $j2c_cp932 =~ s,\\,\\\\,og; $j2c_cp932 =~ s,/,\\/,og;
+
+    no strict 'refs';
+    no warnings 'redefine';
+    *{"$class\::normalize_cp932"} = eval qq{
+      sub {
+        my \$str_ref = ref \$_[0]? \$_[0]: \\\$_[0];
+        if (defined \$\$str_ref and Encode::is_utf8(\$\$str_ref)) {
+            \$\$str_ref =~ tr/$j2c_jis$other_mapping/$j2c_cp932$jis_mapping/;
+        }
+        \$\$str_ref;
+      }
+    };
+    die $@ if $@;
+
+    *{"$class\::normalize_jis"} = eval qq{
+      sub {
+        my \$str_ref = ref \$_[0]? \$_[0]: \\\$_[0];
+        if (defined \$\$str_ref and Encode::is_utf8(\$\$str_ref)) {
+            \$\$str_ref =~ tr/$j2c_cp932$other_mapping/$j2c_jis$jis_mapping/;
+        }
+        \$\$str_ref;
+      }
+    };
+    die $@ if $@;
 }
                                 # JIS => CP932 
 $pkg->set_jis_cp932(
@@ -148,32 +183,7 @@ $pkg->set_jis_cp932(
     "\x{00A6}" => "\x{FFE4}",   # BROKEN BAR => FULLWIDTH BROKEN BAR
 );
 
-# YEN SIGN,        EM DASH,        OVERLINE,         MIDLINE HORIZONTAL ELLIPSIS
-my $other_mapping = "\x{00A5}\x{2014}\x{203E}\x{22EF}";
-# REVERSE SOLIDUS, HORIZONTAL BAR, FULLWIDTH MACRON, HORIZONTAL ELLIPSIS
-my $jis_mapping   = "\x{005C}\x{2015}\x{FFE3}\x{2026}";
 
-sub get {
-    ${$_[0]->{r_str}};
-}
-
-no warnings 'uninitialized';
-
-sub normalize_cp932 {
-    my $str_ref = ref $_[0]? $_[0]: \$_[0];
-    if (Encode::is_utf8($$str_ref)) {
-        eval qq{ \$\$str_ref =~ tr/$j2c_jis$other_mapping/$j2c_cp932$jis_mapping/ };
-    }
-    $$str_ref;
-}
-
-sub normalize_jis {
-    my $str_ref = ref $_[0]? $_[0]: \$_[0];
-    if (Encode::is_utf8($$str_ref)) {
-        eval qq{ \$\$str_ref =~ tr/$j2c_cp932$other_mapping/$j2c_jis$jis_mapping/ };
-    }
-    $$str_ref;
-}
 
 #######################################
 # Full and Half
@@ -210,10 +220,12 @@ sub z2h_ascii {
 }
 
 sub h2z_all {
-    $_[0]->h2z->h2z_ascii;
+    my $self = shift;
+    $self->h2z(@_)->h2z_ascii;
 }
 sub z2h_all {
-    $_[0]->z2h->z2h_ascii;
+    my $self = shift;
+    $self->z2h(@_)->z2h_ascii;
 }
 
 #######################################

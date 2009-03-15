@@ -1,5 +1,8 @@
 Revision history for Jcode-CP932
 
+0.07    2009-03-15
+        正規化処理の追加。
+
 0.05    2006-10-28
         Encode::EUCJPMSを利用するように変更。
         ひらがなカタカナ変換（hira2kata,kata2hira）を追加。
