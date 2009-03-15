@@ -21,6 +21,7 @@ t/cp932-table.jis
 t/cp932-table.sjis
 t/cp932-table.ucs2
 t/cp932-table.utf8
+t/normalize.t
 t/hankaku.euc
 t/hiragana.euc
 t/stripped.euc

@@ -1,6 +1,6 @@
 package Jcode::CP932;
 require 5.008001;
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use warnings;
 use strict;
@@ -104,7 +104,6 @@ my $deparse = B::Deparse->new();
 $deparse->ambient_pragmas(strict => 'all');
 foreach my $func (qw/convert append getcode set _max/) {
     my $body = $deparse->coderef2text( \&{"Jcode::$func"} );
-    $body =~ s"package Jcode;"";
     eval "sub $func $body";
     die if $@;
 }

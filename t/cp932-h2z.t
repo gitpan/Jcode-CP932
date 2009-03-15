@@ -2,14 +2,6 @@
 
 use strict;
 use Jcode::CP932;
-BEGIN {
-    eval { require Text::Diff; };
-    if ($@) {
-        print "1..0 # Skip: Text::Diff required\n";
-        exit 0;
-    }
-    Text::Diff->import();
-}
 
 use Test;
 BEGIN { plan tests => 8 }
@@ -20,9 +12,6 @@ sub myok{ # overloads Test::ok;
     print "not " if $a ne $b;
     ++$seq;
     print "ok $seq # $comment\n";
-  if ($a ne $b) {
-    print jcode( diff( \$a, \$b) )->sjis;
-  }
 }
 
 my $file;
